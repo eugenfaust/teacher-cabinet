@@ -1,7 +1,7 @@
 <script setup>
 
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import {Head, Link, router} from "@inertiajs/vue3";
+import {Head, Link} from "@inertiajs/vue3";
 import FileBox from "@/Components/FileBox.vue";
 
 defineProps({
