@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessTelegram;
 use App\Models\Note;
 use App\Models\NoteFile;
 use App\Models\User;
-use App\Services\TelegramService;
+use App\Services\NoteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,11 +18,10 @@ use Inertia\Response;
 class NoteController extends Controller
 {
 
-    private $telegram;
-
-    public function __construct(TelegramService $telegram)
+    private NoteService $service;
+    public function __construct(NoteService $noteService)
     {
-        $this->telegram = $telegram;
+        $this->service = $noteService;
     }
 
     public function index(Request $request, User $user): Response
@@ -49,23 +49,11 @@ class NoteController extends Controller
             return back()->withErrors($validator)->withInput();
         }
         $data = $validator->validated();
-        $uploaded_files = $data['files'];
-        unset($data['files']);
-        DB::beginTransaction();
-        $note = Note::create($data);
-        try {
-            foreach ($uploaded_files as $file) {
-                $path = $file->store('documents');
-                NoteFile::create(['original_name' => $file->getClientOriginalName(), 'path' => $path, 'note_id' => $note->id]);
-            }
-        } catch (\Exception $exception) {
-            DB::rollBack();
-            $validator->errors()->add('files', 'Загружамые файлы повреждены или неверный формат');
+        if ($this->service->store($data, $validator)) {
+            return to_route('admin.note.index', ['user' => $data['user_id']]);
+        } else {
             return to_route('admin.note.create', ['id' => $data['user_id']])->withErrors($validator);
         }
-        DB::commit();
-        $this->telegram->sendNotesNotify($note->user->tg_id, $note->title);
-        return to_route('admin.note.index', ['user' => $data['user_id']]);
     }
 
     public function destroy(Request $request, Note $note)

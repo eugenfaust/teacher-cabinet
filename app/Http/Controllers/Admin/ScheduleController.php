@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessTelegram;
 use App\Models\Schedule;
 use App\Models\User;
-use App\Services\TelegramService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -14,10 +14,11 @@ use Inertia\Response;
 
 class ScheduleController extends Controller
 {
-    private $telegram;
-    public function __construct(TelegramService $telegram) {
-        $this->telegram = $telegram;
+
+    public function __construct()
+    {
     }
+
     public function index(Request $request, User $user): Response
     {
         $schedules = $user->schedules()->whereDate('scheduled_at', '>', now())->paginate(10);
@@ -43,7 +44,7 @@ class ScheduleController extends Controller
         }
         $data = $validator->validated();
         $schedule = Schedule::create($data);
-        $this->telegram->sendSchedule($schedule->user->tg_id, $schedule->scheduled_at);
+        ProcessTelegram::dispatch($schedule->user->tg_id, 'schedule', $schedule->scheduled_at->format('H:i d.m.Y'));
         return to_route('admin.schedule.index', ['user' => $data['user_id']]);
     }
 
